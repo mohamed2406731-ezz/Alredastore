@@ -41,3 +41,4 @@ src/public/images/collection-previews/
 src/public/images/product-details/
 src/config/catalog-preview.json
 src/config/product-details-preview.json
+.neon
