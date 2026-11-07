@@ -27,7 +27,7 @@ The database already contains commerce/delivery tables and differs from the prop
 
 ## Configuration and code
 
-`src/config/database.js` validates URLs with Zod, rejects explicitly insecure remote TLS modes, enforces certificate verification in memory and bounds pool settings. Defaults: pool maximum 5, connection timeout 15000ms. Production requires `DATABASE_URL` unless explicitly overridden; leave that requirement enabled on Northflank. An optional `DIRECT_URL` must target the same Neon endpoint/database and is used by Prisma CLI configuration. No direct endpoint is guessed or saved.
+`src/config/database.js` validates URLs with Zod, rejects explicitly insecure remote TLS modes, enforces certificate verification in memory and bounds pool settings. Defaults: pool maximum 5, connection timeout 15000ms. Production requires `DATABASE_URL` unless explicitly overridden; leave that requirement enabled on Northflank. Runtime queries use Neon’s pooled `DATABASE_URL`; Prisma CLI uses `DATABASE_URL_UNPOOLED` when present, or the compatible `DIRECT_URL` alias, and validates that it targets the same database. No direct endpoint is guessed or saved.
 
 `src/config/prisma.js` owns a lazy Prisma client using `@prisma/adapter-pg`, a bounded pg pool and driver cleanup on disconnect. `src/repositories/database.repository.js` contains fixed tagged SQL probes and a read-only metadata transaction. `src/services/database.service.js` owns readiness/startup checks and sanitized error codes. The server checks connectivity before listening and disconnects during shutdown. Health responses expose no database details.
 

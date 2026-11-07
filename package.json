@@ -32,6 +32,8 @@
     "catalog:translate:manual": "node scripts/catalog-import/translate-manual.js"
   },
   "dependencies": {
+    "@neon/config": "^1.12.1",
+    "@neon/env": "^2.0.1",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
     "cloudinary": "^2.11.0",
