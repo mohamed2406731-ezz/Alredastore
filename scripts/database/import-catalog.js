@@ -14,6 +14,8 @@ const source = { ...snapshot,
     productIds: sourceRepository.categories.find(item => item.sourceId === category.sourceId)?.productIds || category.productIds })),
 };
 const cloudinary = JSON.parse(fs.readFileSync(path.join(root, 'src/config/cloudinary-media.json'), 'utf8'));
+const homepagePreview = JSON.parse(fs.readFileSync(path.join(root, 'src/config/collection-preview.json'), 'utf8').replace(/^\uFEFF/, ''))
+  .filter(category => category.group === 'primary' || category.group === 'secondary');
 
 function buildPlan(catalog, manifest, delivery) {
   const localized = delivery.applyCatalog(catalog);
@@ -24,8 +26,16 @@ function buildPlan(catalog, manifest, delivery) {
   if (unmapped.length || unmappedCategories.length) throw new Error('CATALOG_HAS_NON_CLOUDINARY_IMAGES');
   if (localized.products.some(product => product.name.length > 120 || product.slug.length > 120)
     || localized.collections.some(category => category.name.length > 80 || category.slug.length > 80)) throw new Error('CATALOG_FIELD_LIMIT_EXCEEDED');
+  const catalogBySlug = new Map(localized.collections.map(category => [category.slug, category]));
+  const homepageOrder = { primary: 0, secondary: 0 };
+  const homepageCollections = homepagePreview.map(category => {
+    const sourceCategory = catalogBySlug.get(category.slug);
+    if (!sourceCategory) throw new Error('CATALOG_HOMEPAGE_COLLECTION_MISSING');
+    return { sourceId: sourceCategory.sourceId, slug: category.slug, sectionSlug: `home-${category.group}`,
+      order: homepageOrder[category.group]++ };
+  });
   return { catalog: localized, products: localized.products.length, categories: localized.collections.length, variants: variants.length,
-    images: images.length, mappedCloudinaryImages: images.length - unmapped.length };
+    images: images.length, mappedCloudinaryImages: images.length - unmapped.length, homepageCollections };
 }
 
 function intPrice(value) {
@@ -53,6 +63,17 @@ async function synchronize({ client, plan }) {
     const savedCategories = await tx.categories.findMany({ where: { source_id: { in: catalog.collections.map(item => item.sourceId) } }, select: { id: true, source_id: true } });
     const categoryIds = new Map(savedCategories.map(category => [category.source_id, category.id]));
     if (categoryIds.size !== catalog.collections.length) throw new Error('CATALOG_CATEGORY_IMPORT_INCOMPLETE');
+    const sections = await tx.storefront_sections.findMany({ where: { slug: { in: ['home-primary', 'home-secondary'] }, is_active: true },
+      select: { id: true, slug: true } });
+    const sectionIds = new Map(sections.map(section => [section.slug, section.id]));
+    if (sectionIds.size !== 2) throw new Error('CATALOG_HOMEPAGE_SECTION_MISSING');
+    for (const assignment of plan.homepageCollections) {
+      const categoryId = categoryIds.get(assignment.sourceId);
+      const homeSectionId = sectionIds.get(assignment.sectionSlug);
+      if (!categoryId || !homeSectionId) throw new Error('CATALOG_HOMEPAGE_COLLECTION_MISSING');
+      await tx.categories.update({ where: { id: categoryId }, data: { home_section_id: homeSectionId,
+        homepage_order: assignment.order, updated_at: new Date() } });
+    }
 
     await tx.products.createMany({ data: catalog.products.map(product => {
       const primary = product.gallery[0];
@@ -93,7 +114,7 @@ async function synchronize({ client, plan }) {
     if (imageRows.length) await tx.product_images.createMany({ data: imageRows, skipDuplicates: true });
     const imageCount = await tx.product_images.count({ where: { product_id: { in: [...productIds.values()] } } });
     return { products: productIds.size, categories: categoryIds.size, variants: variantIds.size, images: imageCount,
-      categoryLinks: links.length };
+      categoryLinks: links.length, homepageCollections: plan.homepageCollections.length };
   }, { maxWait: 15000, timeout: 90000, isolationLevel: 'Serializable' });
 }
 
@@ -104,7 +125,8 @@ async function main(args = process.argv.slice(2)) {
   if (!delivery.cloudName) throw new Error('CLOUDINARY_NOT_CONFIGURED');
   const plan = buildPlan(source, cloudinary, delivery);
   if (!execute) { console.info(JSON.stringify({ mode: 'plan', products: plan.products, categories: plan.categories,
-    variants: plan.variants, images: plan.images, mappedCloudinaryImages: plan.mappedCloudinaryImages })); return; }
+    variants: plan.variants, images: plan.images, mappedCloudinaryImages: plan.mappedCloudinaryImages,
+    homepageCollections: plan.homepageCollections.length })); return; }
   if (process.env.CONFIRM_CATALOG_IMPORT !== 'true') throw new Error('SET_CONFIRM_CATALOG_IMPORT_TO_TRUE_TO_APPLY');
   const client = getPrismaClient();
   try {

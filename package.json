@@ -26,6 +26,7 @@
     "shopping:check": "node scripts/database/shopping-check.js",
     "db:catalog:import": "node scripts/database/import-catalog.js",
     "db:catalog:verify": "node scripts/database/verify-catalog.js",
+    "db:homepage:collections": "node scripts/database/assign-homepage-collections.js",
     "build": "npm run db:generate && node scripts/deployment/prepare-vercel.js",
     "check": "npm run lint && npm test",
     "catalog:details": "node scripts/catalog-import/refresh-details.js",
