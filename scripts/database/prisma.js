@@ -6,8 +6,10 @@ const { readDatabaseConfig } = require('../../src/config/database');
 const actions = { validate: ['validate'], generate: ['generate'], status: ['migrate', 'status'], deploy: ['migrate', 'deploy'] };
 function runPrisma(action) {
   if (!Object.hasOwn(actions, action)) throw new Error('UNSUPPORTED_PRISMA_ACTION');
-  const config = readDatabaseConfig({ ...process.env, DATABASE_REQUIRED: 'false' });
-  if (['status', 'deploy'].includes(action) && !config.enabled) { console.error(JSON.stringify({ action, success: false, code: 'DATABASE_NOT_CONFIGURED' })); return 1; }
+  if (['status', 'deploy'].includes(action)) {
+    const config = readDatabaseConfig({ ...process.env, DATABASE_REQUIRED: 'false' });
+    if (!config.enabled) { console.error(JSON.stringify({ action, success: false, code: 'DATABASE_NOT_CONFIGURED' })); return 1; }
+  }
   const root = path.resolve(__dirname, '../..');
   const cli = path.join(path.dirname(require.resolve('prisma/package.json')), 'build/index.js');
   const result = spawnSync(process.execPath, [cli, ...actions[action]], { cwd: root, encoding: 'utf8', windowsHide: true,
