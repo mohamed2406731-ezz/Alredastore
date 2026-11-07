@@ -9,7 +9,7 @@ module.exports = defineConfig({
   webServer: { command: 'node src/server.js', url: origin, reuseExistingServer: false,
     // Synthetic contact configuration; tests never message a real business.
     env: { PORT: String(port), HOST: '127.0.0.1', NODE_ENV: 'test', WHATSAPP_PHONE: '15550100100',
-      DATABASE_URL: '', DIRECT_URL: '', DATABASE_REQUIRED: 'false',
+      DATABASE_URL: '', DIRECT_URL: '', DATABASE_URL_UNPOOLED: '', DATABASE_REQUIRED: 'false',
       CHECKOUT_ENABLED: 'false', CHECKOUT_ORIGIN: '', CHECKOUT_SHIPPING_RATES: '{}',
       CLOUDINARY_CLOUD_NAME: '', CLOUDINARY_API_KEY: '', CLOUDINARY_API_SECRET: '' } },
 });
