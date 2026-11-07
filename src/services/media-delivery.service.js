@@ -2,7 +2,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { z } = require('zod');
 const { readCloudinaryConfig } = require('../config/cloudinary');
-const { createCloudinaryService, profiles } = require('./cloudinary.service');
+const { profiles } = require('./cloudinary.service');
 const { assertManagedPublicId } = require('../utils/mediaPath');
 const recordSchema = z.object({ publicId: z.string(), assetId: z.string().min(1), secureUrl: z.url(), version: z.number().int().positive(),
   resourceType: z.literal('image'), width: z.number().int().positive(), height: z.number().int().positive() }).passthrough();
@@ -20,7 +20,7 @@ function createMediaDelivery({ source = process.env, manifest: suppliedManifest 
     }
     if (candidate) {
       const result = manifestSchema.safeParse(candidate);
-      if (!result.success || !/^[a-zA-Z0-9_-]{1,100}$/.test(result.data.cloudName) || config.enabled && result.data.cloudName !== config.cloudName || result.data.rootFolder !== config.rootFolder) throw new Error('Invalid Cloudinary media manifest');
+      if (!result.success || !/^[a-zA-Z0-9_-]{1,100}$/.test(result.data.cloudName) || result.data.rootFolder !== config.rootFolder) throw new Error('Invalid Cloudinary media manifest');
       deliveryCloud = result.data.cloudName;
       assets = result.data.assets;
       for (const record of Object.values(assets)) {
@@ -30,12 +30,11 @@ function createMediaDelivery({ source = process.env, manifest: suppliedManifest 
       }
     }
   }
-  const service = createCloudinaryService({ config, client: require('cloudinary').v2 });
-  // Public delivery requires no API key. Upload/delete services remain disabled.
+  const cloudinary = require('cloudinary').v2;
+  // Existing public assets can keep using their manifest account while uploads use runtime credentials.
   const deliveryUrl = (asset, profile) => {
-    if (!publicOnly) return service.getOptimizedImageUrl(asset, profile);
     if (!Object.hasOwn(profiles, profile)) throw new Error('Invalid media profile');
-    return require('cloudinary').v2.url(asset.publicId, { cloud_name: deliveryCloud, secure: true, resource_type: 'image', type: 'upload', sign_url: false,
+    return cloudinary.url(assertManagedPublicId(asset.publicId, config.rootFolder), { cloud_name: deliveryCloud, secure: true, resource_type: 'image', type: 'upload', sign_url: false,
       version: asset.version, width: profiles[profile], crop: 'limit', quality: 'auto', fetch_format: 'auto' });
   };
   const assetUrl = (key, fallback, profile = 'product-card') => assets[key] ? deliveryUrl(assets[key], profile) : fallback;

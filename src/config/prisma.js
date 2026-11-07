@@ -1,7 +1,7 @@
-const { readDatabaseConfig } = require('./database');
+const { readRuntimeDatabaseConfig } = require('./database');
 let instance;
 const transports = new WeakMap();
-function createPrismaClient(config = readDatabaseConfig()) {
+function createPrismaClient(config = readRuntimeDatabaseConfig()) {
   if (!config.enabled) { const error = new Error('DATABASE_NOT_CONFIGURED'); error.code = 'DATABASE_NOT_CONFIGURED'; throw error; }
   const { PrismaClient } = require('@prisma/client');
   const { PrismaPg } = require('@prisma/adapter-pg');

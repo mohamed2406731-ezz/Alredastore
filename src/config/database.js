@@ -30,11 +30,16 @@ function verifiedTls(value) {
   return url.href;
 }
 function readDatabaseConfig(source = process.env) {
-  const result = schema.safeParse(source);
+  const normalized = { ...source, ...(typeof source.DATABASE_REQUIRED === 'string' ? { DATABASE_REQUIRED: source.DATABASE_REQUIRED.toLowerCase() } : {}) };
+  const result = schema.safeParse(normalized);
   if (!result.success) throw new Error(`Invalid database configuration: ${[...new Set(result.error.issues.map(issue => issue.path.join('.')))].join(', ')}`);
   const value = result.data;
   return Object.freeze({ enabled: Boolean(value.DATABASE_URL), required: value.DATABASE_REQUIRED === 'true' || (value.DATABASE_REQUIRED === undefined && value.NODE_ENV === 'production'),
     url: verifiedTls(value.DATABASE_URL), migrationUrl: verifiedTls(value.DATABASE_URL_UNPOOLED || value.DIRECT_URL || value.DATABASE_URL),
     poolMax: value.DATABASE_POOL_MAX, connectTimeoutMs: value.DATABASE_CONNECT_TIMEOUT_MS });
 }
-module.exports = { readDatabaseConfig };
+// Runtime connections use only DATABASE_URL. The direct URL is validated by migration commands.
+function readRuntimeDatabaseConfig(source = process.env) {
+  return readDatabaseConfig({ ...source, DIRECT_URL: '', DATABASE_URL_UNPOOLED: '' });
+}
+module.exports = { readDatabaseConfig, readRuntimeDatabaseConfig };

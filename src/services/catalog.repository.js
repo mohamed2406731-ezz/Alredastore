@@ -1,7 +1,7 @@
 // Development snapshot fallback; configured runtimes load the catalog from PostgreSQL.
 const { createMediaDelivery } = require('./media-delivery.service');
-const { readDatabaseConfig } = require('../config/database');
 const { getPrismaClient } = require('../config/prisma');
+const { readRuntimeDatabaseConfig } = require('../config/database');
 const { activeDiscounts, effectivePrice } = require('./discount.service');
 const { variantPrice, variantColor } = require('./purchase-selection.service');
 const { optimizedImageUrl } = require('../utils/optimizedImage');
@@ -47,7 +47,7 @@ function parseJson(value, fallback) {
 }
 
 async function getDatabaseCatalog(productIds = null, scope = {}) {
-  if (!readDatabaseConfig().enabled) return { catalog, products, bySlug, categories, byCategory, sections: fallbackSections };
+  if (!readRuntimeDatabaseConfig().enabled) return { catalog, products, bySlug, categories, byCategory, sections: fallbackSections };
   const identifiers = Array.isArray(productIds) ? [...new Set(productIds)].sort() : null;
   const key = JSON.stringify([identifiers, scope]);
   if (pendingDatabaseReads.has(key)) return pendingDatabaseReads.get(key);
@@ -61,7 +61,7 @@ async function getDatabaseCatalog(productIds = null, scope = {}) {
 }
 
 async function getDatabaseHomepage() {
-  if (!readDatabaseConfig().enabled) return { categories, byCategory, sections: fallbackSections };
+  if (!readRuntimeDatabaseConfig().enabled) return { categories, byCategory, sections: fallbackSections };
   if (cachedHomepage && Date.now() < cachedHomepageUntil) return cachedHomepage;
   if (pendingHomepageRead) return pendingHomepageRead;
   const revision = homepageCacheRevision;
@@ -81,7 +81,7 @@ async function getDatabaseHomepage() {
 async function searchCatalogProducts(query, locale = 'en') {
   const normalized = String(query || '').trim();
   if (normalized.length < 2) return [];
-  if (!readDatabaseConfig().enabled) {
+  if (!readRuntimeDatabaseConfig().enabled) {
     const needle = normalized.toLocaleLowerCase(locale === 'ar' ? 'ar' : 'en');
     return catalog.products.filter(product => [product.titleEn, product.titleAr, product.name].filter(Boolean)
       .some(name => name.toLocaleLowerCase(locale === 'ar' ? 'ar' : 'en').includes(needle)))

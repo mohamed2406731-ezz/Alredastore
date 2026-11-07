@@ -1,7 +1,7 @@
 ﻿const { z } = require('zod');
 const { whatsappSchema } = require('./whatsapp');
 const { readCloudinaryConfig } = require('./cloudinary');
-const { readDatabaseConfig } = require('./database');
+const { readRuntimeDatabaseConfig } = require('./database');
 
 const environmentSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -11,7 +11,7 @@ const environmentSchema = z.object({
 
 function readEnvironment(source = process.env) {
   readCloudinaryConfig(source); // Validate optional/partial media configuration without returning secrets.
-  readDatabaseConfig(source);
+  readRuntimeDatabaseConfig(source);
   const result = environmentSchema.safeParse(source);
   if (!result.success) {
     // Report names only: environment values may contain secrets.
