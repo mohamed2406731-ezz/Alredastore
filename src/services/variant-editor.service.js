@@ -1,5 +1,6 @@
 const sources = new Map(require('../config/catalog.json').products.map(product => [product.sourceId, product]));
 const { valueName } = require('../config/storefront-i18n');
+const { rehostCloudinaryUrl } = require('../utils/optimizedImage');
 function buildVariantEditor(product) {
   const presentation = product?.catalog_details?.presentation || {};
   const all = product?.product_variants || [];
@@ -27,7 +28,7 @@ function buildVariantEditor(product) {
     return { id: row.id, values: options.map((option, index) => String(values[index] || (options.length === 1 ? row.title : '') || '')),
       priceEgp: regular, salePriceEgp: directOffers.length ? Math.min(...directOffers) : null,
       stock: row.stock_quantity ?? 0, available: Boolean(row.is_available),
-      imageUrl: product.product_images?.find(image => image.source_id === row.source_image_id)?.secure_url || product.product_images?.[0]?.secure_url || product.image_url || '',
+      imageUrl: rehostCloudinaryUrl(product.product_images?.find(image => image.source_id === row.source_image_id)?.secure_url || product.product_images?.[0]?.secure_url || product.image_url || ''),
       titleAr: row.title_ar || values.map(value => valueName(value, 'ar')).join(' / '),
     };
   });

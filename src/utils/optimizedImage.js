@@ -1,8 +1,14 @@
 const widths = Object.freeze({ thumbnail: 160, 'product-card': 640, 'product-detail': 1200, 'category-card': 640 });
+const legacyUrls = require('../config/cloudinary-media.json').legacyUrls || {};
+
+function rehostCloudinaryUrl(value) {
+  return typeof value === 'string' ? legacyUrls[value] || value : value;
+}
 
 // Public upload delivery only: never rewrite signed/private assets or remote URLs.
 // Preserve the upload version and public ID so replacements invalidate CDN caches.
 function optimizedImageUrl(value, profile) {
+  value = rehostCloudinaryUrl(value);
   if (!value || !Object.hasOwn(widths, profile)) return value;
   try {
     const url = new URL(value);
@@ -21,4 +27,4 @@ function optimizedImageUrl(value, profile) {
     return url.href;
   } catch { return value; }
 }
-module.exports = { optimizedImageUrl };
+module.exports = { optimizedImageUrl, rehostCloudinaryUrl };

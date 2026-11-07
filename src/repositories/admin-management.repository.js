@@ -6,6 +6,7 @@ const { classification, activeDiscounts, effectivePrice } = require('../services
 const { variantPrice, variantColor } = require('../services/purchase-selection.service');
 const categorySnapshots = require('../config/catalog.json').collections;
 const sourceProducts = new Map(require('../config/catalog.json').products.map(product => [product.sourceId, product]));
+const { rehostCloudinaryUrl } = require('../utils/optimizedImage');
 function createAdminManagementRepository(provider = getPrismaClient) {
   const audit = (tx, actorId, action, targetId) => tx.admin_audit_events.create({ data: { actor_id: actorId, action, target_id: targetId } });
   async function permit(tx, actorId, permission) {
@@ -40,8 +41,11 @@ function createAdminManagementRepository(provider = getPrismaClient) {
         provider().storefront_sections.findMany({ where: { is_active: true }, orderBy: { display_order: 'asc' } }),
       ]);
       const visibleProducts = products.filter(product => Boolean(product.catalog_details?.presentation?.archivedAt) === includeArchived);
-      const hydrated = visibleProducts.map(product => ({ ...product, catalog_details: { color_ar: '', type_ar: '', ...classification(product), ...(product.catalog_details || {}) } }));
-      const imageCategories = categories.map(category => ({ ...category, previewImage: categorySnapshots.find(item => item.slug === category.slug)?.image || '' }));
+      const hydrated = visibleProducts.map(product => ({ ...product, image_url: rehostCloudinaryUrl(product.image_url),
+        product_images: product.product_images.map(image => ({ ...image, secure_url: rehostCloudinaryUrl(image.secure_url) })),
+        catalog_details: { color_ar: '', type_ar: '', ...classification(product), ...(product.catalog_details || {}) } }));
+      const imageCategories = categories.map(category => ({ ...category, image_url: rehostCloudinaryUrl(category.image_url),
+        previewImage: rehostCloudinaryUrl(categorySnapshots.find(item => item.slug === category.slug)?.image || '') }));
       return { products: hydrated, categories: imageCategories, sections, details: [...details, ...hydrated.map(product => product.catalog_details)] };
     },
     async homepageLayout() {
@@ -49,8 +53,8 @@ function createAdminManagementRepository(provider = getPrismaClient) {
         provider().storefront_sections.findMany({ where: { is_active: true }, orderBy: { display_order: 'asc' } }),
         provider().categories.findMany({ orderBy: [{ home_section_id: 'asc' }, { homepage_order: 'asc' }, { name: 'asc' }] }),
       ]);
-      return { sections, categories: categories.map(category => ({ ...category,
-        previewImage: categorySnapshots.find(item => item.slug === category.slug)?.image || '' })) };
+      return { sections, categories: categories.map(category => ({ ...category, image_url: rehostCloudinaryUrl(category.image_url),
+        previewImage: rehostCloudinaryUrl(categorySnapshots.find(item => item.slug === category.slug)?.image || '') })) };
     },
     async createHomeSection(actorId, data) {
       const section = await provider().$transaction(async tx => {

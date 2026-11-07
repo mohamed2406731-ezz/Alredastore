@@ -4,7 +4,7 @@ const { readDatabaseConfig } = require('../config/database');
 const { getPrismaClient } = require('../config/prisma');
 const { activeDiscounts, effectivePrice } = require('./discount.service');
 const { variantPrice, variantColor } = require('./purchase-selection.service');
-const { optimizedImageUrl } = require('../utils/optimizedImage');
+const { optimizedImageUrl, rehostCloudinaryUrl } = require('../utils/optimizedImage');
 const pendingDatabaseReads = new Map();
 let pendingHomepageRead;
 const HOMEPAGE_CACHE_TTL_MS = 15_000;
@@ -215,20 +215,20 @@ async function loadDatabaseCatalog(productIds = null, scope = {}) {
     }
     const gallery = row.product_images.map(image => {
       const source = (original.gallery || []).find(value => value.sourceId === image.source_id) || {};
-      const sameAsset = source.src === image.secure_url;
+      const secureUrl = rehostCloudinaryUrl(image.secure_url);
+      const sameAsset = source.src === secureUrl;
       // Reuse already generated manifest derivatives instead of consuming free-tier
       // transformation quota for equivalent URLs. Replacements use the saved URL.
-      const cardSrc = sameAsset && source.cardSrc || optimizedImageUrl(image.secure_url, 'product-card');
-      const displaySrc = sameAsset && source.displaySrc || optimizedImageUrl(image.secure_url, 'product-detail');
-      // Saved URLs are authoritative, including after replacing an imported image.
-      const optimized = cardSrc !== image.secure_url;
-      return { ...source, sourceId: image.source_id, src: image.secure_url,
-        cardSrc: optimized ? cardSrc : image.secure_url,
-        displaySrc: optimized ? displaySrc : image.secure_url,
-        thumbSrc: sameAsset && source.thumbSrc || optimizedImageUrl(image.secure_url, 'thumbnail'),
+      const cardSrc = sameAsset && source.cardSrc || optimizedImageUrl(secureUrl, 'product-card');
+      const displaySrc = sameAsset && source.displaySrc || optimizedImageUrl(secureUrl, 'product-detail');
+      const optimized = cardSrc !== secureUrl;
+      return { ...source, sourceId: image.source_id, src: secureUrl,
+        cardSrc: optimized ? cardSrc : secureUrl,
+        displaySrc: optimized ? displaySrc : secureUrl,
+        thumbSrc: sameAsset && source.thumbSrc || optimizedImageUrl(secureUrl, 'thumbnail'),
         srcSet: sameAsset && source.srcSet || (optimized && source.width >= 1200 ? `${cardSrc} 640w, ${displaySrc} 1200w` : ''),
         alt: image.alt_text, position: image.display_order,
-        cloudinary: { ...(source.cloudinary || {}), secureUrl: image.secure_url, publicId: image.public_id, assetId: image.asset_id } };
+        cloudinary: { ...(source.cloudinary || {}), secureUrl, publicId: image.public_id, assetId: image.asset_id } };
     });
     const collectionIds = row.product_categories.map(link => link.categories.source_id || link.categories.id);
     const savedColors = String(row.catalog_details?.color_en || '').split(/[,;|/]+/).map(value => value.trim()).filter(Boolean);
@@ -238,6 +238,7 @@ async function loadDatabaseCatalog(productIds = null, scope = {}) {
     if (presentation.manageTypes) sourceOptions = [...(savedColors.length ? [{ name: 'Color', values: savedColors }] : []), { name: 'Type', values: presentation.types.map(type => type.en) }];
     if (presentation.variantEditor?.enabled) sourceOptions = presentation.variantEditor.options.map((option,index)=>({name:option.name,values:[...new Set(variants.map(variant=>variant.options[index]).filter(Boolean))]}));
     return { ...original, id: row.id, catalogDetails: row.catalog_details, stock_quantity: row.stock_quantity, sourceId: row.source_id || row.id, slug: row.slug, name: row.name, titleEn: row.name, titleAr: row.name_ar,
+      image_url: rehostCloudinaryUrl(row.image_url || original.image_url || ''),
       descriptionHtml: row.description, descriptionArHtml: row.description_ar, gallery, variants, options: sourceOptions,
       collectionIds, isAvailable: row.is_available, priceEgp: row.price_egp };
   });
