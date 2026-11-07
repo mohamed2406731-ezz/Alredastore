@@ -18,16 +18,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
     if (order?.payment_method === 'INSTAPAY') order.payment_proof = await db().payment_proofs.findUnique({ where: { order_id: order.id }, select: { id: true, status: true } });
     return order;
   }
-  async function restoreInventory(tx, items) {
-    for (const item of items.filter(row => row.product_id).sort((a,b) => a.product_id.localeCompare(b.product_id))) {
-      await tx.$queryRaw`SELECT id FROM public.products WHERE id = ${item.product_id}::uuid FOR UPDATE`;
-      if (item.variant_id) {
-        await tx.product_variants.update({ where: { id: item.variant_id }, data: { stock_quantity: { increment: item.quantity }, updated_at: new Date() } });
-        const remaining = await tx.product_variants.aggregate({ where: { product_id: item.product_id, is_available: true }, _sum: { stock_quantity: true } });
-        await tx.products.update({ where: { id: item.product_id }, data: { stock_quantity: remaining._sum.stock_quantity || 0, updated_at: new Date() } });
-      } else await tx.products.update({ where: { id: item.product_id }, data: { stock_quantity: { increment: item.quantity }, updated_at: new Date() } });
-    }
-  }
   return {
     async canUploadProof(userId) { return await db().payment_proofs.count({ where: { user_id: userId, created_at: { gt: new Date(Date.now()-3600000) } } }) < 8; },
     async createProof(userId, asset) {
@@ -50,8 +40,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
       const add = (key, query) => { keys.push(key); jobs.push(query); };
       if (canCatalog) {
         add('products', client.products.count()); add('categories', client.categories.count({ where: { is_active: true } }));
-        add('lowStock', client.products.count({ where: { stock_quantity: { lte: 5 } } }));
-        add('unknownStock', client.products.count({ where: { stock_quantity: null } }));
         add('discounts', client.discount_rules.count({ where: { is_active: true, starts_at: { lte: new Date() }, ends_at: { gt: new Date() } } }));
       }
       if (canOrders) {
@@ -73,10 +61,10 @@ function createOrderRepository(clientProvider = getPrismaClient) {
       return user ? { ...user, admin_permissions: await adminPermissions(db(), user) } : null;
     },
     async products() {
-      const rows = await db().products.findMany({ where: { is_available: true, stock_quantity: { gt: 0 }, product_options: { none: {} } },
+      const rows = await db().products.findMany({ where: { is_available: true, product_options: { none: {} } },
         select: { id: true, source_id: true, name: true, price_egp: true, sale_price_egp: true, stock_quantity: true, category_id: true, catalog_details: true, product_categories: { select: { category_id: true } }, product_variants: { take: 2 } }, orderBy: { name: 'asc' }, take: 500 });
       const rules = await activeDiscounts(db());
-      return rows.filter(product => !product.catalog_details?.presentation?.archivedAt && product.product_variants.length <= 1 && (!product.product_variants.length || product.product_variants[0].is_available && product.product_variants[0].stock_quantity > 0)).map(product => {
+      return rows.filter(product => !product.catalog_details?.presentation?.archivedAt && product.product_variants.length <= 1 && (!product.product_variants.length || product.product_variants[0].is_available)).map(product => {
         const result = { ...product };
         const variant = product.product_variants[0];
         if (variant) { result.variant_id = variant.id; result.stock_quantity = variant.stock_quantity; }
@@ -144,13 +132,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
           const lineTotal = price * item.quantity;
           subtotal += lineTotal;
           if (!Number.isSafeInteger(subtotal) || subtotal + shippingFee > 100000000) throw new OrderError('INVALID_TOTAL', 400);
-          const target = variant ? tx.product_variants : tx.products;
-          const changed = await target.updateMany({ where: { id: variant ? variant.id : product.id, is_available: true, stock_quantity: { gte: item.quantity } }, data: { stock_quantity: { decrement: item.quantity }, updated_at: new Date() } });
-          if (changed.count !== 1) throw new OrderError('INSUFFICIENT_INVENTORY');
-          if (variant) {
-            const remaining = await tx.product_variants.aggregate({ where: { product_id: product.id, is_available: true }, _sum: { stock_quantity: true } });
-            await tx.products.update({ where: { id: product.id }, data: { stock_quantity: remaining._sum.stock_quantity || 0, updated_at: new Date() } });
-          }
           lines.push({ product_id: product.id, variant_id: variant?.id || null, options: variant?.options || '[]', product_name: (product.name + (variant ? ' - ' + variant.title : '')).slice(0,120), product_name_ar: (product.name_ar + (variant ? ' - ' + (variant.title_ar || variant.title) : '')).slice(0,160), quantity: item.quantity, unit_price_egp: price, line_total_egp: lineTotal });
         }
         if (input.expectedTotalEgp !== subtotal + shippingFee) throw new OrderError('PRICE_CHANGED');
@@ -210,9 +191,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
         if (order.payment_method === 'INSTAPAY' && order.payment_status !== 'PAID' && status !== 'CANCELLED') throw new OrderError('PAYMENT_REVIEW_REQUIRED', 409);
         if (status === 'CANCELLED' && order.payment_status === 'PAID') throw new OrderError('PAID_ORDER_REFUND_REQUIRED', 409);
         if (order.status === 'DELIVERED' || order.status === 'CANCELLED' || !({ PLACED: ['CONFIRMED', 'PROCESSING', 'CANCELLED'], CONFIRMED: ['PROCESSING', 'CANCELLED'], PROCESSING: ['SHIPPED', 'CANCELLED'], SHIPPED: ['DELIVERED'] }[order.status] || []).includes(status)) throw new OrderError('INVALID_STATUS_TRANSITION', 409);
-        if (status === 'CANCELLED') {
-          await restoreInventory(tx, order.order_items);
-        }
         await tx.orders.update({ where: { id: order.id }, data: { status, updated_at: new Date() } });
         await tx.order_events.create({ data: { order_id: order.id, actor_id: actorId, status, note: `Administrator changed status to ${status}.` } });
         if (order.user_id) await tx.notification_outbox.create({ data: { user_id: order.user_id, order_id: order.id, event_type: 'ORDER_STATUS', dedupe_key: `${order.id}:ORDER_STATUS:${status}`,
@@ -235,11 +213,10 @@ function createOrderRepository(clientProvider = getPrismaClient) {
           if (decision === 'APPROVE' && proof.status === 'APPROVED' && proof.transfer_reference === reference) return { id: order.id, changed: false };
           if (decision === 'REJECT' && proof.status === 'REJECTED') return { id: order.id, changed: false };
           if (proof.status !== 'PENDING' || order.status === 'CANCELLED' || order.payment_status === 'PAID') throw new OrderError('PAYMENT_REVIEW_CONFLICT', 409);
-          if (decision === 'REJECT') await restoreInventory(tx, order.order_items);
           await tx.payment_proofs.update({ where: { id: proof.id }, data: { status: decision === 'APPROVE' ? 'APPROVED' : 'REJECTED', reviewed_by: actorId, reviewed_at: new Date(), transfer_reference: decision === 'APPROVE' ? reference : null } });
           const status = decision === 'APPROVE' ? 'CONFIRMED' : 'CANCELLED';
           await tx.orders.update({ where: { id: orderId }, data: { status, updated_at: new Date(), ...(decision === 'APPROVE' ? { payment_status: 'PAID', paid_by: actorId, paid_at: new Date(), amount_received_egp: order.total_egp, change_due_egp: 0, payment_provider_reference: `instapay:${reference}` } : {}) } });
-          await tx.order_events.create({ data: { order_id: orderId, actor_id: actorId, status, note: decision === 'APPROVE' ? 'Administrator verified InstaPay funds and approved proof.' : 'Administrator rejected InstaPay proof; stock restored.' } });
+          await tx.order_events.create({ data: { order_id: orderId, actor_id: actorId, status, note: decision === 'APPROVE' ? 'Administrator verified InstaPay funds and approved proof.' : 'Administrator rejected the InstaPay proof.' } });
           await tx.admin_audit_events.create({ data: { actor_id: actorId, action: `INSTAPAY_${decision}`, target_id: orderId } });
           if (order.user_id) await tx.notification_outbox.create({ data: { user_id: order.user_id, order_id: orderId, event_type: 'ORDER_STATUS', dedupe_key: `${orderId}:INSTAPAY:${decision}`, payload: { orderId, reference: order.order_number, status } } });
           return { id: order.id, changed: true };

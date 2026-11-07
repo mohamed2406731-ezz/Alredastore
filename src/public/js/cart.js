@@ -40,8 +40,8 @@
       const product = item.products;
       const variant = item.product_variants;
       return [item.product_id, item.variant_id, item.quantity, product.name, product.name_ar, product.image_url,
-        product.price_egp, product.sale_price_egp, product.stock_quantity, product.is_available,
-        variant?.price_egp, variant?.stock_quantity, variant?.is_available];
+        product.price_egp, product.sale_price_egp, product.is_available,
+        variant?.price_egp, variant?.is_available];
     }));
   }
 
@@ -77,8 +77,7 @@
       const product = item.products;
       const itemPrice = product.sale_price_egp ?? product.price_egp;
       const variant = item.product_variants;
-      const availableStock = variant ? variant.stock_quantity : product.stock_quantity;
-      const itemAvailable = product.is_available !== false && variant?.is_available !== false && Number.isInteger(availableStock) && availableStock > 0;
+      const itemAvailable = product.is_available !== false && variant?.is_available !== false;
       subtotal += itemPrice * item.quantity;
       count += item.quantity;
       const row = document.createElement('li');
@@ -99,12 +98,10 @@
       name.textContent = locale === 'ar' ? product.name_ar || product.name : product.name;
       const quantity = document.createElement('span'); quantity.className = 'bag-item-quantity';
       quantity.textContent = `${item.quantity} × ${price(itemPrice)}`;
-      if (!itemAvailable || availableStock < item.quantity) {
+      if (!itemAvailable) {
         const warning = document.createElement('small');
         warning.className = 'bag-stock-warning';
-        warning.textContent = !itemAvailable
-          ? dialog.dataset.outOfStockText
-          : dialog.dataset.stockWarningText.replace('{quantity}', new Intl.NumberFormat(locale).format(availableStock));
+        warning.textContent = dialog.dataset.unavailableText;
         details.append(name, quantity, warning);
       } else {
         details.append(name, quantity);

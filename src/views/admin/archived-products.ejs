@@ -12,7 +12,7 @@
           <div class="catalog-product-image"><img src="<%= cover || '/assets/images/product-placeholder.svg' %>" alt="" loading="lazy"></div>
           <div class="catalog-product-content">
             <h2><%= locale === 'ar' ? product.name_ar : product.name %></h2>
-            <p class="catalog-product-price">EGP <%= product.price_egp %> · <%= a('remainingStock') %>: <%= Number(product.stock_quantity ?? 0).toLocaleString(locale === 'ar' ? 'ar-EG' : 'en-EG') %></p>
+            <p class="catalog-product-price">EGP <%= product.price_egp %></p>
             <form action="/admin/catalog/products/<%= product.id %>/restore" method="post"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button" type="submit"><%= a('restoreProduct') %></button></form>
             <details class="catalog-permanent-delete"><summary><%= a('deletePermanently') %></summary><p><%= a('permanentDeleteWarning') %></p>
               <form action="/admin/catalog/products/<%= product.id %>/permanent-delete" method="post" onsubmit="return confirm('<%= a('deletePermanently') %>?')"><input type="hidden" name="_csrf" value="<%= csrfToken %>"><button class="button button-danger" type="submit"><%= a('deletePermanently') %></button></form>

@@ -89,7 +89,7 @@
   function renderVariant(variant, updateUrl) {
     current = variant;
     root.dataset.purchaseVariant = variant.databaseId || '';
-    maxQuantity = Math.min(99, Number.isInteger(variant.inventoryQuantity) ? Math.max(1, variant.inventoryQuantity) : Number(quantity.max) || 99);
+    maxQuantity = Math.min(99, Number(quantity.max) || 99);
     quantity.max = String(maxQuantity);
     quantity.value = String(normalizedQuantity());
     root.querySelectorAll('.add-to-cart').forEach(button => {

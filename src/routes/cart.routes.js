@@ -19,7 +19,7 @@ function createCartRoutes({ repository = createCartRepository(), secure = proces
     return { userId: req.customer?.id || null, guestToken: req.customer ? null : token };
   }
   function sendError(error, res) {
-    const status = ['PRODUCT_UNAVAILABLE', 'INSUFFICIENT_INVENTORY', 'PRODUCT_OPTIONS_REQUIRED', 'PRICE_CHANGED'].includes(error.message) ? 409 : 503;
+    const status = ['PRODUCT_UNAVAILABLE', 'CART_QUANTITY_LIMIT', 'PRODUCT_OPTIONS_REQUIRED', 'PRICE_CHANGED'].includes(error.message) ? 409 : 503;
     return res.status(status).json({ error: status === 409 ? error.message : 'CART_UNAVAILABLE' });
   }
   router.use('/api/cart', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });

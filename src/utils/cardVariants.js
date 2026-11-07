@@ -9,7 +9,7 @@ function cardVariants(record, locale) {
       || (record.gallery || []).find(image => image.variantIds?.includes(variant.id));
     const image = gallery.find(image => image.id === associated?.sourceId) || gallery[0];
     const compare = variant.compareAtAmount && Number(variant.compareAtAmount) > Number(variant.priceAmount);
-    const outOfStock = record.stock_quantity === 0 || (Number.isInteger(variant.inventoryQuantity) && variant.inventoryQuantity <= 0);
+    const outOfStock = variant.publicAvailable === false;
     return { id: variant.id, options: variant.options || [], title: variantName(variant.title, locale), image: image?.src || null, outOfStock,
       price: formatPrice(variant.priceAmount, locale), compare: compare ? formatPrice(variant.compareAtAmount, locale) : '',
       availability: outOfStock ? require('../config/storefront-i18n').translate(locale, 'outOfStock') : require('./productPreview').availability([variant], locale).label };

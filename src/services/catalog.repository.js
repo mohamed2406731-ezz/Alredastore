@@ -206,12 +206,12 @@ async function loadDatabaseCatalog(productIds = null, scope = {}) {
       return { ...source, id: variant.source_id, databaseId: variant.id, title: variant.title, titleAr: variant.title_ar,
         priceAmount: price.toFixed(2), compareAtAmount: compare ? Number(compare).toFixed(2) : null,
         sku: variant.sku, options: parseJson(variant.options, []),
-        publicAvailable: variant.stock_quantity === null ? null : variant.is_available && variant.stock_quantity > 0,
+        publicAvailable: variant.is_available,
         inventoryQuantity: variant.stock_quantity, imageId: variant.source_image_id };
     });
     if (!variants.length) {
       const price = effectivePrice(row, discountRules);
-      variants.push({ id: `base-${row.id}`, title: 'Default Title', titleAr: 'المنتج', priceAmount: price.toFixed(2), compareAtAmount: price < row.price_egp ? row.price_egp.toFixed(2) : null, sku: '', options: ['Default Title'], publicAvailable: row.stock_quantity === null ? null : row.is_available && row.stock_quantity > 0, inventoryQuantity: row.stock_quantity, imageId: null });
+      variants.push({ id: `base-${row.id}`, title: 'Default Title', titleAr: 'المنتج', priceAmount: price.toFixed(2), compareAtAmount: price < row.price_egp ? row.price_egp.toFixed(2) : null, sku: '', options: ['Default Title'], publicAvailable: row.is_available, inventoryQuantity: row.stock_quantity, imageId: null });
     }
     const gallery = row.product_images.map(image => {
       const source = (original.gallery || []).find(value => value.sourceId === image.source_id) || {};

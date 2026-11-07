@@ -30,7 +30,7 @@
     </div>
   <% } %>
   <% if (product.preview && product.preview.groups.length) { %>
-    <p class="availability" data-card-stock <%= product.outOfStock || product.preview.variants[0]?.outOfStock ? '' : 'hidden' %>><%= product.outOfStock ? product.availability.label : product.preview.variants[0]?.availability %></p>
+    <p class="availability" data-card-stock <%= product.unavailable || product.preview.variants[0]?.outOfStock ? '' : 'hidden' %>><%= product.unavailable ? product.availability.label : product.preview.variants[0]?.availability %></p>
     <a class="button card-choose-options" href="<%= product.href %>"><%= product.preview.chooseLabel %></a>
   <% } else { %>
     <%- include('availability', { availability: product.availability }) %>
