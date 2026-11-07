@@ -55,6 +55,10 @@ function createCartRepository(clientProvider = getPrismaClient) {
         const current = await tx.cart_items.findFirst({ where: { cart_id: cart.id, product_id: productId, variant_id: variantId || null }, select: { id: true, quantity: true } });
         const next = (current?.quantity || 0) + quantity;
         if (next > 99) throw new Error('CART_QUANTITY_LIMIT');
+        const inventory = variantId
+          ? await tx.product_variants.findFirst({ where: { id: variantId, product_id: productId }, select: { stock_quantity: true } })
+          : await tx.products.findUnique({ where: { id: productId }, select: { stock_quantity: true } });
+        if (inventory?.stock_quantity == null || next > inventory.stock_quantity) throw new Error('INSUFFICIENT_INVENTORY');
         if (current) await tx.cart_items.update({ where: { id: current.id }, data: { quantity: next, updated_at: new Date() } });
         else await tx.cart_items.create({ data: { cart_id: cart.id, product_id: productId, variant_id: variantId || null, quantity } });
         await tx.shopping_carts.update({ where: { id: cart.id }, data: { updated_at: new Date() } });

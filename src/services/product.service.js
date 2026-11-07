@@ -14,14 +14,15 @@ function getProductFromData(data, slug, { variant, collection, locale = 'en' } =
   const category = selectedCategory ? { ...selectedCategory, name: categoryName(selectedCategory, locale) }
     : { name: translate(locale, 'allProducts'), slug: '', href: '/products' };
   const variants = record.variants.map(item => ({ ...item, title: locale === 'ar' && item.titleAr ? item.titleAr : variantName(item.title, locale), sku: item.sku || '', currentFormatted: formatPrice(item.priceAmount, locale),
-    outOfStock: item.publicAvailable === false,
-    availabilityLabel: item.publicAvailable === false ? translate(locale, 'unavailable') : translate(locale, 'available'),
+    outOfStock: item.inventoryQuantity === 0,
+    availabilityLabel: item.inventoryQuantity === 0 ? translate(locale, 'outOfStock') : item.inventoryQuantity > 0 ? translate(locale, 'stockAvailable') : item.publicAvailable === false ? translate(locale, 'unavailable') : translate(locale, 'available'),
     gallerySrc: (record.gallery.find(image => image.sourceId === item.imageId) || record.gallery[0])?.src || null,
     compareAtFormatted: item.compareAtAmount && BigInt(item.compareAtAmount.replace('.', '')) > BigInt(item.priceAmount.replace('.', '')) ? formatPrice(item.compareAtAmount, locale) : '',
   }));
   const selectedVariant = variants.find(item => item.id === variant) || (!variant ? variants[0] : null);
   if (!selectedVariant) return { invalidSelection: true };
-  for (const item of variants) item.purchaseEligible = purchaseStatus === 'ready' && (item.databaseId ? item.publicAvailable === true : record.isAvailable !== false);
+  for (const item of variants) item.purchaseEligible = purchaseStatus === 'ready'
+    && (item.databaseId ? item.publicAvailable === true && item.inventoryQuantity > 0 : record.isAvailable !== false && record.stock_quantity > 0);
   const purchaseEligible = selectedVariant.purchaseEligible;
   const optionGroups = record.options.map((option, index) => ({ name: valueName(option.name, locale), index,
     values: option.values.map(value => { const key = value.trim().toLowerCase(); return { value, displayValue: locale === 'ar' ? record.catalogDetails?.presentation?.types?.find(type => type.en === value)?.ar || valueName(value, locale) : valueName(value, locale), color: /color|colour|لون/i.test(option.name) && Object.hasOwn(colors, key) ? colors[key] : '' }; }),
@@ -31,7 +32,7 @@ function getProductFromData(data, slug, { variant, collection, locale = 'en' } =
   const related = selectedCategory ? selectedCategory.productIds.map(id => data.products.get(id)).filter(Boolean) : data.catalog.products;
   const details = productDescription(record, locale);
   return { category, categories: data.categories.map(item => ({ ...item, name: categoryName(item, locale) })), product: { ...record, vendor: valueName(record.vendor || '', locale), id: record.id, stock_quantity: record.stock_quantity, purchaseEligible, name: productName(record, locale), href: `/products/${encodeURIComponent(slug)}`,
-    purchaseStatus, descriptionHtml: details.html, descriptionLanguage: details.language, originalDescription: details.originalLanguage,
+    purchaseStatus: purchaseStatus === 'ready' && !purchaseEligible ? 'inventoryPending' : purchaseStatus, descriptionHtml: details.html, descriptionLanguage: details.language, originalDescription: details.originalLanguage,
     variants, selectedVariant, optionGroups, specifications, variantsJson: JSON.stringify(variants),
     primaryImage: record.gallery.find(image => image.sourceId === selectedVariant.imageId) || record.gallery[0] || null,
   }, relatedProducts: related.filter(item => item.sourceId !== record.sourceId).slice(0, 4).map(item => productCard(item, category.slug, locale)) };

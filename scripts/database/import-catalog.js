@@ -28,9 +28,8 @@ function buildPlan(catalog, manifest, delivery) {
     || localized.collections.some(category => category.name.length > 80 || category.slug.length > 80)) throw new Error('CATALOG_FIELD_LIMIT_EXCEEDED');
   const catalogBySlug = new Map(localized.collections.map(category => [category.slug, category]));
   const homepageOrder = { primary: 0, secondary: 0 };
-  const homepageCollections = homepagePreview.map(category => {
+  const homepageCollections = homepagePreview.filter(category => catalogBySlug.has(category.slug)).map(category => {
     const sourceCategory = catalogBySlug.get(category.slug);
-    if (!sourceCategory) throw new Error('CATALOG_HOMEPAGE_COLLECTION_MISSING');
     return { sourceId: sourceCategory.sourceId, slug: category.slug, sectionSlug: `home-${category.group}`,
       order: homepageOrder[category.group]++ };
   });
