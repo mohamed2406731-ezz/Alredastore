@@ -124,18 +124,16 @@
   function showStockWarning(input) {
     const warning = input.closest('.checkout-quantity')?.querySelector('[data-checkout-stock-status]');
     if (!warning) return;
-    const stock = Number(input.dataset.stock);
     const available = input.dataset.available === 'true';
     warning.textContent = input.dataset.removed === 'true'
       ? msg('itemRemoved')
-      : !available ? msg('itemOutOfStock')
-        : Number(input.value) > stock ? msg('itemQuantityChanged', { quantity: new Intl.NumberFormat(locale === 'ar' ? 'ar-EG' : 'en-EG').format(stock) }) : '';
+      : !available ? msg('orderProductUnavailable') : '';
     warning.hidden = !warning.textContent;
   }
   for (const input of inventoryInputs) {
     const row = input.closest('.checkout-product');
     input.dataset.liveState = JSON.stringify([
-      Number(input.dataset.price), Number(input.dataset.stock), input.dataset.available,
+      Number(input.dataset.price), input.dataset.available,
       row?.querySelector('[data-checkout-product-name]')?.textContent || '',
       row?.querySelector('[data-checkout-product-image]')?.getAttribute('src') || '',
     ]);
@@ -166,19 +164,17 @@
         }
         const product = item.products;
         const variant = item.product_variants;
-        const stock = variant ? variant.stock_quantity : product.stock_quantity;
-        const available = product.is_available !== false && variant?.is_available !== false && Number.isInteger(stock) && stock > 0;
+        const available = product.is_available !== false && variant?.is_available !== false;
         const unitPrice = product.sale_price_egp ?? product.price_egp;
         const name = locale === 'ar' ? product.name_ar || product.name : product.name;
         const image = product.image_url || '';
-        const signature = JSON.stringify([Number(unitPrice), stock, String(available), name, image]);
+        const signature = JSON.stringify([Number(unitPrice), String(available), name, image]);
         if (input.dataset.liveState === signature && input.dataset.removed !== 'true') continue;
         input.dataset.liveState = signature;
         input.dataset.price = String(unitPrice);
-        input.dataset.stock = String(stock);
         input.dataset.available = String(available);
         delete input.dataset.removed;
-        input.max = String(Math.min(Number.isInteger(stock) && stock > 0 ? stock : 0, 50));
+        input.max = '50';
         const row = input.closest('.checkout-product');
         const productName = row?.querySelector('[data-checkout-product-name]');
         if (productName) productName.textContent = name;

@@ -27,10 +27,8 @@ async function selection(tx, productId, variantId, quantity, rules = []) {
     variant = await tx.product_variants.findFirst({ where: { id: variantId, product_id: productId, is_available: true } });
     if (!variant) throw new Error('PRODUCT_UNAVAILABLE');
   } else if (await tx.product_options.count({ where: { product_id: productId } }) || await tx.product_variants.count({ where: { product_id: productId } }) > 0) throw new Error('PRODUCT_OPTIONS_REQUIRED');
-  const stock = variant ? variant.stock_quantity : product.stock_quantity;
-  if (!Number.isInteger(stock) || stock < quantity) throw new Error('INSUFFICIENT_INVENTORY');
   const price = variant ? variantPrice(product, variant, rules) : effectivePrice(product, rules);
   if (!Number.isSafeInteger(price) || price <= 0) throw new Error('PRICE_CHANGED');
-  return { product, variant, price, stock };
+  return { product, variant, price };
 }
 module.exports = { selection, variantPrice, variantColor };

@@ -4,14 +4,11 @@ function purchaseState(record) {
   if (record.isAvailable === false) return 'productNotForSale';
   const persisted = (record.variants || []).filter(variant => uuid.test(variant.databaseId || ''));
   if (persisted.length) {
-    if (persisted.some(variant => Number.isInteger(variant.inventoryQuantity) && variant.inventoryQuantity > 0 && variant.publicAvailable === true)) return 'ready';
-    return persisted.every(variant => Number.isInteger(variant.inventoryQuantity) && variant.inventoryQuantity <= 0) ? 'outOfStock' : 'inventoryPending';
+    if (persisted.some(variant => variant.publicAvailable === true)) return 'ready';
+    return persisted.every(variant => variant.publicAvailable === false) ? 'productNotForSale' : 'ready';
   }
-  if ((Number.isInteger(record.stock_quantity) && record.stock_quantity <= 0)
-    || (record.variants?.length && record.variants.every(variant => Number.isInteger(variant.inventoryQuantity) && variant.inventoryQuantity <= 0))) return 'outOfStock';
   const choice = (record.variants?.length || 0) > 1 || (record.options || []).some(option => (option.values || []).some(value => value !== 'Default Title'));
   if (choice) return 'variantPurchasingPending';
-  if (!Number.isInteger(record.stock_quantity)) return 'inventoryPending';
-  return record.stock_quantity > 0 ? 'ready' : 'productNotForSale';
+  return 'ready';
 }
 module.exports = { purchaseState };

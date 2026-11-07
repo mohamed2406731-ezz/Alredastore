@@ -51,10 +51,10 @@ function createCartRepository(clientProvider = getPrismaClient) {
     async add({ userId, guestToken, productId, variantId, quantity }) {
       return db().$transaction(async tx => {
         const cart = await resolve(tx, userId, guestToken ? digest(guestToken) : '');
-        const chosen = await selection(tx, productId, variantId, 1);
+        await selection(tx, productId, variantId, 1);
         const current = await tx.cart_items.findFirst({ where: { cart_id: cart.id, product_id: productId, variant_id: variantId || null }, select: { id: true, quantity: true } });
         const next = (current?.quantity || 0) + quantity;
-        if (next > 99 || next > chosen.stock) throw new Error('INSUFFICIENT_INVENTORY');
+        if (next > 99) throw new Error('CART_QUANTITY_LIMIT');
         if (current) await tx.cart_items.update({ where: { id: current.id }, data: { quantity: next, updated_at: new Date() } });
         else await tx.cart_items.create({ data: { cart_id: cart.id, product_id: productId, variant_id: variantId || null, quantity } });
         await tx.shopping_carts.update({ where: { id: cart.id }, data: { updated_at: new Date() } });
@@ -87,9 +87,9 @@ function createCartRepository(clientProvider = getPrismaClient) {
         if (!guest || guest.status !== 'ACTIVE') return;
         const owner = await resolve(tx, userId, '');
         for (const item of guest.cart_items) {
-          let chosen; try { chosen = await selection(tx, item.product_id, item.variant_id, 1); } catch { continue; }
+          try { await selection(tx, item.product_id, item.variant_id, 1); } catch { continue; }
           const prior = await tx.cart_items.findFirst({ where: { cart_id: owner.id, product_id: item.product_id, variant_id: item.variant_id }, select: { id: true, quantity: true } });
-          const merged = Math.min(99, chosen.stock, (prior?.quantity || 0) + item.quantity);
+          const merged = Math.min(99, (prior?.quantity || 0) + item.quantity);
           if (prior) await tx.cart_items.update({ where: { id: prior.id }, data: { quantity: merged, updated_at: new Date() } });
           else await tx.cart_items.create({ data: { cart_id: owner.id, product_id: item.product_id, variant_id: item.variant_id, quantity: merged } });
         }

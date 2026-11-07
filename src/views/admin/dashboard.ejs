@@ -3,7 +3,6 @@
   <div class="admin-stat-grid">
     <% if (typeof stats.products !== 'undefined') { %><article class="admin-stat"><span><%= dashboardText('products') %></span><strong><%= number(stats.products) %></strong><small><%= dashboardText('categories') %>: <%= number(stats.categories) %></small></article><% } %>
     <% if (typeof stats.orders !== 'undefined') { %><article class="admin-stat"><span><%= dashboardText('orders') %></span><strong><%= number(stats.orders) %></strong><small><%= dashboardText('pending') %>: <%= number(stats.pending) %></small></article><% } %>
-    <% if (typeof stats.lowStock !== 'undefined') { %><article class="admin-stat"><span><%= dashboardText('lowStock') %></span><strong><%= number(stats.lowStock) %></strong><small><%= dashboardText('unknownStock') %>: <%= number(stats.unknownStock) %></small></article><% } %>
     <% if (typeof stats.discounts !== 'undefined') { %><article class="admin-stat"><span><%= dashboardText('discounts') %></span><strong><%= number(stats.discounts) %></strong><small><%= a('discounts') %></small></article><% } %>
     <% if (typeof stats.team !== 'undefined') { %><article class="admin-stat"><span><%= dashboardText('team') %></span><strong><%= number(stats.team) %></strong><small><%= a('roles') %></small></article><% } %>
   </div>

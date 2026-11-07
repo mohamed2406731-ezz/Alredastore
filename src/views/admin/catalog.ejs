@@ -22,7 +22,7 @@
       <label><%= a('category') %><select name="categoryId" required><% for (const category of categories) { %><option value="<%= category.id %>" <%= editing?.category_id === category.id ? 'selected' : '' %>><%= locale === 'ar' ? category.name_ar : category.name %></option><% } %></select></label>
       <label><%= a('price') %><input name="priceEgp" type="number" min="1" max="10000000" step="1" value="<%= editing?.price_egp || '' %>" required></label>
       <label><%= a('offerPrice') %><input name="salePriceEgp" type="number" min="1" max="10000000" step="1" value="<%= editing?.sale_price_egp ?? '' %>" aria-describedby="offer-price-hint"></label>
-      <label><%= a('stock') %><input name="stock" type="number" min="0" max="1000000" step="1" value="<%= editing?.stock_quantity ?? '' %>" required></label>
+      <input type="hidden" name="stock" value="0">
     </div>
     <p id="offer-price-hint" class="catalog-color-help"><%= a('offerPriceHint') %></p>
     <fieldset class="catalog-media" data-image-upload data-kind="product">
