@@ -151,7 +151,7 @@ function createAdminManagementRepository(provider = getPrismaClient) {
           presentation.colorImages = {};
           presentation.colorPrices = {};
         }
-        const core = { name: data.name, name_ar: data.nameAr, description: data.description, description_ar: data.descriptionAr, price_egp: data.priceEgp, sale_price_egp: matrix ? null : data.salePriceEgp, stock_quantity: data.stock,
+        const core = { name: data.name, name_ar: data.nameAr, description: data.description, description_ar: data.descriptionAr, price_egp: data.priceEgp, sale_price_egp: matrix ? null : data.salePriceEgp, stock_quantity: null,
           category_id: data.categoryId, image_url: data.imageUrls[0], is_available: data.available, updated_at: new Date() };
         if (data.id) {
           if (matrix && !data.expectedUpdatedAt) throw new Error('PRODUCT_EDIT_STALE');
@@ -169,8 +169,8 @@ function createAdminManagementRepository(provider = getPrismaClient) {
         await tx.product_categories.upsert({ where: { product_id_category_id: { product_id: id, category_id: data.categoryId } }, create: { product_id: id, category_id: data.categoryId }, update: {} });
         const existingVariants = await tx.product_variants.findMany({ where: { product_id: id }, orderBy: { source_id: 'asc' } });
         if (!matrix && !selectedColors.length && !presentation.manageTypes) {
-          if (!data.id || existingVariants.length === 0) await tx.product_variants.create({ data: { source_id: `custom-${id}`, product_id: id, title: 'Default Title', title_ar: 'المنتج', price_egp: data.priceEgp, options: '["Default Title"]', is_available: data.available, stock_quantity: data.stock } });
-          else if (existingVariants.length === 1) await tx.product_variants.update({ where: { id: existingVariants[0].id }, data: { price_egp: data.priceEgp, stock_quantity: data.stock, is_available: data.available, updated_at: new Date() } });
+          if (!data.id || existingVariants.length === 0) await tx.product_variants.create({ data: { source_id: `custom-${id}`, product_id: id, title: 'Default Title', title_ar: 'المنتج', price_egp: data.priceEgp, options: '["Default Title"]', is_available: data.available, stock_quantity: null } });
+          else if (existingVariants.length === 1) await tx.product_variants.update({ where: { id: existingVariants[0].id }, data: { price_egp: data.priceEgp, stock_quantity: null, is_available: data.available, updated_at: new Date() } });
         }
         // Preserve galleries and variant relationships while setting the selected cover first.
         await tx.product_images.updateMany({ where: { product_id: id }, data: { is_primary: false, display_order: { increment: 1 } } });
@@ -203,7 +203,7 @@ function createAdminManagementRepository(provider = getPrismaClient) {
             for (const combination of combinations) {
               const options = combination.options.length ? [...combination.options] : Array(length).fill('');
               options[colorIndex] = item.color;
-              const variantData = { title: combination.variant?.title || item.color, title_ar: combination.variant?.title_ar || color.ar, price_egp: item.priceEgp ?? data.priceEgp, is_available: data.available, stock_quantity: item.stock ?? data.stock,
+              const variantData = { title: combination.variant?.title || item.color, title_ar: combination.variant?.title_ar || color.ar, price_egp: item.priceEgp ?? data.priceEgp, is_available: data.available, stock_quantity: null,
                 options: JSON.stringify(options), source_image_id: sourceImageId, color_hex: color.hex, updated_at: new Date() };
               if (combination.variant) await tx.product_variants.update({ where: { id: combination.variant.id }, data: variantData });
               else await tx.product_variants.create({ data: { source_id: `admin-color-${id}-${index}-${randomUUID().slice(0, 8)}`, product_id: id, ...variantData } });
@@ -225,7 +225,7 @@ function createAdminManagementRepository(provider = getPrismaClient) {
               const variantData = { title: options.join(' / '), title_ar: color ? require('../config/catalog-colors').colorOptions.find(item => item.en === color.color).ar + ' / ' + type.ar : type.ar,
                 color_hex: color ? require('../config/catalog-colors').colorOptions.find(item => item.en === color.color).hex : '',
                 price_egp: color?.priceEgp ?? type.priceEgp, options: JSON.stringify(options), source_image_id: sourceImageId,
-                stock_quantity: selectedColors.length ? Math.floor(type.stock / selectedColors.length) + (colorIndex < type.stock % selectedColors.length ? 1 : 0) : type.stock, is_available: data.available, updated_at: new Date() };
+                stock_quantity: null, is_available: data.available, updated_at: new Date() };
               const existing = existingVariants.find(item => item.source_id === sourceId);
               if (existing) await tx.product_variants.update({ where: { id: existing.id }, data: variantData });
               else await tx.product_variants.create({ data: { ...variantData, source_id: sourceId, product_id: id } });
@@ -242,7 +242,7 @@ function createAdminManagementRepository(provider = getPrismaClient) {
             const sourceImageId=imageByUrl.get(row.imageUrl);
             if(!sourceImageId)throw new Error('INVALID_VARIANT_IMAGE');
             const color=colorIndex>=0?require('../config/catalog-colors').resolveColorSwatches(row.values[colorIndex])[0]:null;
-            const variantData={title:row.values.join(' / '),title_ar:row.titleAr||row.values.map(value=>require('../config/storefront-i18n').valueName(value,'ar')).join(' / '),options:JSON.stringify(row.values),price_egp:row.priceEgp,compare_at_egp:null,source_image_id:sourceImageId,color_hex:color?.hex||'',stock_quantity:row.stock,is_available:data.available&&row.available,updated_at:new Date()};
+            const variantData={title:row.values.join(' / '),title_ar:row.titleAr||row.values.map(value=>require('../config/storefront-i18n').valueName(value,'ar')).join(' / '),options:JSON.stringify(row.values),price_egp:row.priceEgp,compare_at_egp:null,source_image_id:sourceImageId,color_hex:color?.hex||'',stock_quantity:null,is_available:data.available&&row.available,updated_at:new Date()};
             const previous=existingVariants.find(variant=>variant.id===row.id);
             if(previous)await tx.product_variants.update({where:{id:row.id},data:variantData});
             else await tx.product_variants.create({data:{id:row.id,product_id:id,source_id:`admin-matrix-${row.id}`,...variantData}});

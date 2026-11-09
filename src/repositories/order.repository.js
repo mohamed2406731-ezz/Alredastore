@@ -129,20 +129,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
           catch (error) { throw new OrderError(['PRODUCT_UNAVAILABLE','INSUFFICIENT_INVENTORY','PRODUCT_OPTIONS_REQUIRED','PRICE_CHANGED'].includes(error.message) ? error.message : 'ORDER_SELECTION_UNAVAILABLE'); }
           const { product, variant, price } = chosen;
           if (price !== item.unitPriceEgp) throw new OrderError('PRICE_CHANGED');
-          const inventory = variant ? variant.stock_quantity : product.stock_quantity;
-          if (inventory === null || inventory === undefined) throw new OrderError('INSUFFICIENT_INVENTORY');
-          {
-            const where = { id: variant ? variant.id : product.id, stock_quantity: { gte: item.quantity } };
-            const changed = variant
-              ? await tx.product_variants.updateMany({ where, data: { stock_quantity: { decrement: item.quantity }, updated_at: new Date() } })
-              : await tx.products.updateMany({ where, data: { stock_quantity: { decrement: item.quantity }, updated_at: new Date() } });
-            if (changed.count !== 1) throw new OrderError('INSUFFICIENT_INVENTORY');
-          }
-          if (variant && product.stock_quantity !== null && product.stock_quantity !== undefined) {
-            const changed = await tx.products.updateMany({ where: { id: product.id, stock_quantity: { gte: item.quantity } },
-              data: { stock_quantity: { decrement: item.quantity }, updated_at: new Date() } });
-            if (changed.count !== 1) throw new OrderError('INSUFFICIENT_INVENTORY');
-          }
           const lineTotal = price * item.quantity;
           subtotal += lineTotal;
           if (!Number.isSafeInteger(subtotal) || subtotal + shippingFee > 100000000) throw new OrderError('INVALID_TOTAL', 400);
@@ -206,10 +192,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
         if (status === 'CANCELLED' && order.payment_status === 'PAID') throw new OrderError('PAID_ORDER_REFUND_REQUIRED', 409);
         if (order.status === 'DELIVERED' || order.status === 'CANCELLED' || !({ PLACED: ['CONFIRMED', 'PROCESSING', 'CANCELLED'], CONFIRMED: ['PROCESSING', 'CANCELLED'], PROCESSING: ['SHIPPED', 'CANCELLED'], SHIPPED: ['DELIVERED'] }[order.status] || []).includes(status)) throw new OrderError('INVALID_STATUS_TRANSITION', 409);
         await tx.orders.update({ where: { id: order.id }, data: { status, updated_at: new Date() } });
-        if (status === 'CANCELLED') for (const item of order.order_items) {
-          if (item.variant_id) await tx.product_variants.updateMany({ where: { id: item.variant_id }, data: { stock_quantity: { increment: item.quantity }, updated_at: new Date() } });
-          await tx.products.updateMany({ where: { id: item.product_id }, data: { stock_quantity: { increment: item.quantity }, updated_at: new Date() } });
-        }
         await tx.order_events.create({ data: { order_id: order.id, actor_id: actorId, status, note: `Administrator changed status to ${status}.` } });
         if (order.user_id) await tx.notification_outbox.create({ data: { user_id: order.user_id, order_id: order.id, event_type: 'ORDER_STATUS', dedupe_key: `${order.id}:ORDER_STATUS:${status}`,
           payload: { orderId: order.id, reference: order.order_number, status } } });
@@ -234,10 +216,6 @@ function createOrderRepository(clientProvider = getPrismaClient) {
           await tx.payment_proofs.update({ where: { id: proof.id }, data: { status: decision === 'APPROVE' ? 'APPROVED' : 'REJECTED', reviewed_by: actorId, reviewed_at: new Date(), transfer_reference: decision === 'APPROVE' ? reference : null } });
           const status = decision === 'APPROVE' ? 'CONFIRMED' : 'CANCELLED';
           await tx.orders.update({ where: { id: orderId }, data: { status, updated_at: new Date(), ...(decision === 'APPROVE' ? { payment_status: 'PAID', paid_by: actorId, paid_at: new Date(), amount_received_egp: order.total_egp, change_due_egp: 0, payment_provider_reference: `instapay:${reference}` } : {}) } });
-          if (decision === 'REJECT') for (const item of order.order_items) {
-            if (item.variant_id) await tx.product_variants.updateMany({ where: { id: item.variant_id }, data: { stock_quantity: { increment: item.quantity }, updated_at: new Date() } });
-            await tx.products.updateMany({ where: { id: item.product_id }, data: { stock_quantity: { increment: item.quantity }, updated_at: new Date() } });
-          }
           await tx.order_events.create({ data: { order_id: orderId, actor_id: actorId, status, note: decision === 'APPROVE' ? 'Administrator verified InstaPay funds and approved proof.' : 'Administrator rejected the InstaPay proof.' } });
           await tx.admin_audit_events.create({ data: { actor_id: actorId, action: `INSTAPAY_${decision}`, target_id: orderId } });
           if (order.user_id) await tx.notification_outbox.create({ data: { user_id: order.user_id, order_id: orderId, event_type: 'ORDER_STATUS', dedupe_key: `${orderId}:INSTAPAY:${decision}`, payload: { orderId, reference: order.order_number, status } } });

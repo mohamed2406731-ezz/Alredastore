@@ -58,6 +58,8 @@ Object.assign(labels, {
 labels.productSaved = ['Product saved successfully.', '\u062a\u0645 \u062d\u0641\u0638 \u0627\u0644\u0645\u0646\u062a\u062c \u0628\u0646\u062c\u0627\u062d.'];
 labels.categorySaved = ['Collection saved successfully.', '\u062a\u0645 \u062d\u0641\u0638 \u0627\u0644\u062a\u0635\u0646\u064a\u0641 \u0628\u0646\u062c\u0627\u062d.'];
 labels.remainingStock = ['Stock left', '\u0627\u0644\u0645\u062e\u0632\u0648\u0646 \u0627\u0644\u0645\u062a\u0628\u0642\u064a'];
+labels.available = ['Available for sale (turn off when sold out)', '\u0645\u062a\u0627\u062d \u0644\u0644\u0628\u064a\u0639 (\u0623\u0644\u063a\u0650 \u0627\u0644\u062a\u0641\u0639\u064a\u0644 \u0639\u0646\u062f \u0646\u0641\u0627\u062f \u0627\u0644\u0645\u0646\u062a\u062c)'];
+labels.soldOut = ['Sold out', '\u0646\u0641\u062f'];
 labels.chooseColor = ['Choose a color', '\u0627\u062e\u062a\u0631 \u0644\u0648\u0646\u064b\u0627'];
 labels.colorImage = ['Image for this color', '\u0635\u0648\u0631\u0629 \u0627\u0644\u0644\u0648\u0646'];
 labels.uploadColorImageFirst = ['Upload at least one product image, then assign one to each selected color.', '\u0627\u0631\u0641\u0639 \u0635\u0648\u0631\u0629 \u0644\u0644\u0645\u0646\u062a\u062c \u0623\u0648\u0644\u064b\u0627\u060c \u062b\u0645 \u062d\u062f\u0651\u062f \u0635\u0648\u0631\u0629 \u0644\u0643\u0644 \u0644\u0648\u0646.'];

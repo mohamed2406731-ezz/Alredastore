@@ -9,10 +9,10 @@ function cardVariants(record, locale) {
       || (record.gallery || []).find(image => image.variantIds?.includes(variant.id));
     const image = gallery.find(image => image.id === associated?.sourceId) || gallery[0];
     const compare = variant.compareAtAmount && Number(variant.compareAtAmount) > Number(variant.priceAmount);
-    const outOfStock = variant.inventoryQuantity === 0;
+    const outOfStock = variant.publicAvailable === false;
     return { id: variant.id, options: variant.options || [], title: variantName(variant.title, locale), image: image?.src || null, outOfStock,
       price: formatPrice(variant.priceAmount, locale), compare: compare ? formatPrice(variant.compareAtAmount, locale) : '',
-      availability: outOfStock ? require('../config/storefront-i18n').translate(locale, 'outOfStock') : variant.inventoryQuantity > 0 ? require('../config/storefront-i18n').translate(locale, 'stockAvailable') : variant.publicAvailable === false ? require('../config/storefront-i18n').translate(locale, 'unavailable') : require('./productPreview').availability([variant], locale).label };
+      availability: outOfStock ? require('../config/storefront-i18n').translate(locale, 'outOfStock') : require('./productPreview').availability([variant], locale).label };
   });
   const groups = (record.options || []).map((option, index) => ({ index, name: valueName(option.name, locale), isColor: /colou?r|لون/i.test(option.name),
     values: (option.values || []).filter(value => value !== 'Default Title' && variants.some(variant => variant.options[index] === value)).map(value => {
